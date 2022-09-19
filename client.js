@@ -5,7 +5,11 @@ const emojiRegex = require("emoji-regex/es2015/index.js");
 // const emojiRegexText = require("emoji-regex/es2015/text.js");
 const config = require("./config.json");
 const flairs = require("./flairs.json");
+let mpv = require('node-mpv');
+const axios = require('axios');
+const cheerio = require('cheerio');
 
+let watchlist = [];
 let showUsers = config.showUsers;
 let showTimestamp = config.showTimestamp;
 let flairsMap = new Map();
@@ -17,25 +21,27 @@ const ws = new WebSocket("wss://chat.destiny.gg/ws", {
 });
 
 const screen = blessed.screen({
-  smartCSR: true,
+  fastCSR: true,
   title: "destiny.gg",
-  fullUnicode: true
+  fullUnicode: true,
+  sendFocus: true
 });
 
 const chatBox = blessed.box({
   label: "destiny.gg",
   width: "100%-20",
-  height: "100%-3",
+  height: "100%-3", 
   border: {
     type: "line"
-  }
+  },
+  scrollable: true
 });
 
 const chatLog = blessed.log({
   parent: chatBox,
   tags: true,
   scrollable: true,
-  alwaysScroll: true,
+  alwaysScroll: false,
   scrollOnInput: false,
   mouse: true,
   keys: true
@@ -101,6 +107,29 @@ ws.on("message", function incoming(data) {
     msg.data = msg.data.replace(emoji, "[emoji]");
   }
 
+function findTwitchEmbeds(text) {
+	if (!text) return;
+	var twitchRegex = /#twitch\/[.?]+/i; 
+	return text.replace(twitchRegex, function(text) {	
+		return ("www.twitch.tv/" + text.split('/')[1]);	
+		})
+		   }
+  
+ function findYoutubeEmbeds(text) {
+	var youtubeRegex = /#youtube\/[.?]+/i;
+	 if (!text) return;
+	return text.replace(youtubeRegex, function(text) {	
+		return ("www.youtube.com/watch?v=" + text.split('/')[1]);	
+		})
+ }
+
+//const re = new RegExp(/#youtube\/, 'i');
+var youtubeRegex = /#youtube\//i;
+//msg.data = msg.data.replace(youtubeRegex, "www.youtube.com/watch?v=");
+msg.data = findTwitchEmbeds(msg.data);
+msg.data = findYoutubeEmbeds(msg.data);
+
+
   // first packet sent by server, used to fill user list
   if (type === "NAMES") {
     msg.users.forEach(user => {
@@ -155,6 +184,14 @@ ws.on("message", function incoming(data) {
     if (msg.data[0] === ">") {
       data = `{green-fg}${data}{/}`;
     }
+    // added highlighting for mentions
+    if (msg.data.includes(config.username)) {
+	data = `{#9eb5db-bg}${data}{/}`;
+    }
+
+    if (watchlist.includes(msg.nick)) {
+	data= `{underline}${data}{/underline}`;
+    }
 
     if (showTimestamp) {
       let timestamp = new Date(msg.timestamp).toUTCString();
@@ -165,6 +202,8 @@ ws.on("message", function incoming(data) {
     
   }
 });
+
+
 
 input.key("enter", () => {
   const text = input.getValue();
@@ -180,6 +219,23 @@ input.key("enter", () => {
     showUsers = true;
   } else if (text === "/timestamps") {
     showTimestamp = !showTimestamp;
+  } else if (text.includes("/watch")) {
+    watchlist.push(text.split(" ")[1]);
+  } else if (text.includes("/unwatch")) {
+    watchlist = watchlist.filter(function(value, index, arr){
+    return value !== text.split(" ")[1];
+    });
+  } else if (text === "/quit" || text === "/exit") {
+  process.exit(0);
+  } else if (text === "/livestream" || text === "/ls") {
+	  let mpv_player = new mpv();
+	  try {
+	  mpv_player.load("https://www.youtube.com/user/destiny/live");
+		chatLog.log(`{yellow-fg}Launching stream!{/}`);
+	  }
+	  catch (error) {
+		chatLog.log("ERROR: STREAM NOT FOUND");	  
+	  }
   } else {
     send("MSG", { data: text });
   }
@@ -231,6 +287,35 @@ const userComparator = (a, b) => {
 };
 
 input.key(["C-c"], () => process.exit(0));
+input.key(["C-n"], () => input.focus());
+input.key(["upArrow"], () => chatBox.scroll(20));
+input.key(["downArrow"], () => chatBox.scroll(-20));
+input.key(["C-r"], () => { 
+outputStreamStatus();
+//	const {data} = axios.get('https://www.destiny.gg');
+//	chatLog.log(data);
+//	const nn = cheerio.load(data);
+//	const outstr = [];
+
+//	console.log(nn('div.stream-status').class());
+});
+
+const outputStreamStatus = async () => {
+	try {
+		const {data} = await axios.get("https://www.destiny.gg");
+		const $ = cheerio.load(data);
+		const strmStatus = [];
+
+		const stat = $('#stream-status-title').text();
+		chatLog.log(`{yellow-fg}${stat}{/}`);
+	} catch (error) {
+		throw error;
+	}
+
+
+
+}
+
 
 screen.append(chatBox);
 screen.append(inputBox);
@@ -241,3 +326,9 @@ screen.render();
 input.focus();
 
 chatLog.log(`{cyan-fg}Connecting to destiny.gg ...{/}`);
+if (!config.showUsers) {
+	screen.remove(userBox);
+	inputBox.width = "100%";
+    	chatBox.width = "100%";
+    showUsers = false;
+}
