@@ -228,7 +228,7 @@ input.key("enter", () => {
   } else if (text === "/quit" || text === "/exit") {
   process.exit(0);
   } else if (text === "/livestream" || text === "/ls") {
-	  let mpv_player = new mpv();
+	  let mpv_player = new mpv(["--no-taskbar-progress"]);
 	  try {
 	  mpv_player.load("https://www.youtube.com/user/destiny/live");
 		chatLog.log(`{yellow-fg}Launching stream!{/}`);
