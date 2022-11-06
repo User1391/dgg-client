@@ -200,6 +200,7 @@ ws.on('message', function incoming(data) {
 	}
 });
 
+<<<<<<< HEAD
 input.key('enter', () => {
 	const text = input.getValue();
 	if (text === '/users' && showUsers) {
@@ -222,6 +223,32 @@ input.key('enter', () => {
 		process.exit(0);
 	} else if (text === '/livestream' || text === '/ls') {
 	  const mpv_player = new mpv();
+=======
+input.key("enter", () => {
+  const text = input.getValue();
+  if (text === "/users" && showUsers) {
+    screen.remove(userBox);
+    inputBox.width = "100%";
+    chatBox.width = "100%";
+    showUsers = false;
+  } else if (text === "/users" && !showUsers) {
+    screen.append(userBox);
+    inputBox.width = "100%-20";
+    chatBox.width = "100%-20";
+    showUsers = true;
+  } else if (text === "/timestamps") {
+    showTimestamp = !showTimestamp;
+  } else if (text.includes("/watch")) {
+    watchlist.push(text.split(" ")[1]);
+  } else if (text.includes("/unwatch")) {
+    watchlist = watchlist.filter(function(value, index, arr){
+    return value !== text.split(" ")[1];
+    });
+  } else if (text === "/quit" || text === "/exit") {
+  process.exit(0);
+  } else if (text === "/livestream" || text === "/ls") {
+	  let mpv_player = new mpv(["--no-taskbar-progress"]);
+>>>>>>> 8ba52ab9048e847f7d9dc4197e24a300ab0eb254
 	  try {
 	  mpv_player.load('https://www.youtube.com/user/destiny/live');
 			chatLog.log('{yellow-fg}Launching stream!{/}');
